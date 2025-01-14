@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Times Tables Quiz</title>
+    <style>
+        body {
+            background-color: #fffacd;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+        h1 {
+            margin-top: 20px;
+        }
+        #startButton {
+            margin: 20px auto;
+            padding: 10px 20px;
+            font-size: 24px;
+        }
+        #questionBox {
+            display: none;
+            margin: 20px auto;
+            padding: 10px;
+            font-size: 24px;
+        }
+        #answerInput {
+            font-size: 20px;
+            padding: 10px;
+            margin-top: 20px;
+        }
+        #scoreMessage {
+            margin-top: 20px;
+            font-size: 24px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Times Tables Quiz</h1>
+    <button id="startButton" onclick="startQuiz()">Start Quiz</button>
+    <div id="questionBox">
+        <div id="questionText"></div>
+        <input type="text" id="answerInput" onkeydown="if(event.keyCode==13) checkAnswer()" placeholder="Your answer">
+    </div>
+    <div id="scoreMessage"></div>
+
+    <script>
+        const groups = [
+            [{ table: 2, range: [2] }],
+            [{ table: 10, range: [2, 3, 4, 5, 6, 7, 8, 9, 10] }],
+            [{ table: 5, range: [2, 3, 4, 5] }],
+            [{ table: 3, range: [2, 3] }],
+            [{ table: 4, range: [2, 3, 4] }],
+            [{ table: 9, range: [2, 3, 4, 5, 6, 7, 8, 9] }],
+            [{ table: 6, range: [2, 3, 4, 5, 6] }],
+            [{ table: 8, range: [2, 3, 4, 5, 6, 7, 8] }],
+            [{ table: 7, range: [2, 3, 4, 5, 6, 7] }]
+        ];
+
+        let currentGroupIndex = 0;
+        let questions = [];
+        let currentQuestionIndex = 0;
+        let correctAnswers = 0;
+        let delayedQuestions = [];
+        let delayedMode = false;
+        let delayedTimer;
+
+        function generateQuestionsForGroup(group) {
+            questions = [];
+            group.forEach(({ table, range }) => {
+                range.forEach(factor => {
+                    questions.push({ question: `${factor} x ${table}`, answer: `${factor * table}`, delayed: false });
+                });
+            });
+            questions = shuffleArray(questions);
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function startQuiz() {
+            currentGroupIndex = 0;
+            correctAnswers = 0;
+            delayedQuestions = [];
+            currentQuestionIndex = 0;
+            delayedMode = false;
+            document.body.style.backgroundColor = "#fffacd"; // Reset background color
+            document.getElementById("startButton").style.display = "none";
+            document.getElementById("questionBox").style.display = "block";
+            generateQuestionsForGroup(groups[currentGroupIndex]);
+            displayQuestion();
+            startMainTimer();
+        }
+
+        function displayQuestion() {
+            const questionObj = delayedMode
+                ? delayedQuestions[currentQuestionIndex]
+                : questions[currentQuestionIndex];
+            document.getElementById("questionText").textContent = questionObj.question;
+            document.getElementById("answerInput").value = "";
+            document.getElementById("answerInput").focus(); // Automatically focus the text box
+        }
+
+        function checkAnswer() {
+            const userAnswer = document.getElementById("answerInput").value.trim();
+            const questionObj = delayedMode
+                ? delayedQuestions[currentQuestionIndex]
+                : questions[currentQuestionIndex];
+            const correctAnswer = questionObj.answer;
+
+            // Delayed mode: Only move on if the answer is correct
+            if (delayedMode) {
+                if (userAnswer === correctAnswer) {
+                    currentQuestionIndex = (currentQuestionIndex + 1) % delayedQuestions.length; // Go to the next question
+                    displayQuestion(); // Refresh with the next question
+                } else {
+                    alert("Incorrect! Try again.");
+                }
+                return; // Exit early to avoid normal mode behavior
+            }
+
+            // Normal mode: Move on regardless of correctness
+            if (userAnswer === correctAnswer) {
+                correctAnswers++;
+            } else {
+                addToDelayedQuestions(questionObj);
+            }
+
+            // Update to the next question in normal mode
+            currentQuestionIndex++;
+            if (currentQuestionIndex >= questions.length) {
+                nextGroup();
+                return; // Exit early to prevent calling displayQuestion prematurely
+            }
+
+            // Check if we should enter delayed mode
+            checkDelayedMode();
+
+            // Display the next question
+            displayQuestion();
+        }
+
+        function addToDelayedQuestions(questionObj) {
+            if (!questionObj.delayed) {
+                questionObj.delayed = true;
+                delayedQuestions.push(questionObj);
+            }
+        }
+
+        function checkDelayedMode() {
+            if (delayedQuestions.length >= 3 && !delayedMode) {
+                delayedMode = true;
+                document.body.style.backgroundColor = "#ccffcc"; // Change background to pastel lime
+                startDelayedTimer();
+            }
+        }
+
+        function nextGroup() {
+            currentGroupIndex++;
+            if (currentGroupIndex < groups.length) {
+                generateQuestionsForGroup(groups[currentGroupIndex]);
+                currentQuestionIndex = 0;
+                displayQuestion();
+            } else {
+                endQuiz();
+            }
+        }
+
+        function startMainTimer() {
+            setTimeout(() => {
+                if (!delayedMode) endQuiz();
+            }, 180000); // 3 minutes
+        }
+
+        function startDelayedTimer() {
+            currentQuestionIndex = 0;
+            shuffleArray(delayedQuestions); // Shuffle before starting delayed mode
+            delayedTimer = setTimeout(() => {
+                endQuiz();
+            }, 120000); // 2 minutes
+            displayQuestion();
+        }
+
+        function endQuiz() {
+            clearTimeout(delayedTimer);
+            document.getElementById("questionBox").style.display = "none";
+            const totalQuestions = groups.reduce((sum, group) => {
+                return sum + group.reduce((acc, { range }) => acc + range.length, 0);
+            }, 0);
+
+            const scoreMessage = `You answered ${correctAnswers} out of ${totalQuestions} questions.`;
+            document.getElementById("scoreMessage").textContent = scoreMessage;
+            document.getElementById("scoreMessage").style.display = "block";
+            document.getElementById("startButton").style.display = "block";
+            document.getElementById("startButton").textContent = "Restart";
+        }
+    </script>
+</body>
+</html>
